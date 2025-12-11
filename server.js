@@ -1,4 +1,5 @@
 
+// Use GoogleGenAI from @google/genai
 import { GoogleGenAI, Type } from "@google/genai";
 import { TranslationResponse, VocabularyItem } from "../types";
 
@@ -27,10 +28,6 @@ Output: {"source_language": "English", "translation": "မၞး အာ အလ�
 Input: "I am eating rice."
 Output: {"source_language": "English", "translation": "အဲ စမံင် ပုင် ရ။"}
 
-**Example 3 (Mon -> English):**
-Input: "မၞး မံင်မိပ်မံင်ဟာ"
-Output: {"source_language": "Mon", "translation": "How are you doing?"}
-
 **Example 4 (English -> Mon):**
 Input: "Thank you very much."
 Output: {"source_language": "English", "translation": "တင်ဂုဏ် ဗွဲမလောန် ရ။"}
@@ -50,6 +47,7 @@ export const sendMessageToGemini = async (
   message: string, 
   vocabulary: VocabularyItem[] = []
 ): Promise<TranslationResponse> => {
+  // Initialize AI with apiKey from process.env.API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   let finalSystemInstruction = BASE_SYSTEM_INSTRUCTION;
@@ -63,6 +61,7 @@ export const sendMessageToGemini = async (
 
   const tryModel = async (modelName: string): Promise<TranslationResponse> => {
     console.debug(`Attempting translation with: ${modelName}`);
+    // Use generateContent directly as per guidelines
     const response = await ai.models.generateContent({
       model: modelName,
       contents: message,
@@ -72,23 +71,38 @@ export const sendMessageToGemini = async (
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            source_language: { type: Type.STRING },
-            translation: { type: Type.STRING },
-            romanization: { type: Type.STRING, nullable: true },
-            notes: { type: Type.STRING, nullable: true },
+            source_language: {
+              type: Type.STRING,
+              description: 'The language of the input text.',
+            },
+            translation: {
+              type: Type.STRING,
+              description: 'The translated text.',
+            },
+            romanization: {
+              type: Type.STRING,
+              description: 'Pronunciation guide for the translated text.',
+            },
+            notes: {
+              type: Type.STRING,
+              description: 'Cultural or grammatical notes.',
+            },
           },
           required: ['source_language', 'translation'],
+          propertyOrdering: ["source_language", "translation", "romanization", "notes"],
         },
       },
     });
 
+    // Access response.text property directly
     const text = response.text;
     if (!text) throw new Error(`Empty response from model ${modelName}.`);
     
-    return JSON.parse(text) as TranslationResponse;
+    return JSON.parse(text.trim()) as TranslationResponse;
   };
 
-  const modelsToTry = ['gemini-3-pro-preview', 'gemini-3-pro', 'gemini-2.5-pro'];
+  // Use only recommended models as per guidelines
+  const modelsToTry = ['gemini-2.5-pro', 'gemini-2.5-flash'];
 
   for (const model of modelsToTry) {
     try {
