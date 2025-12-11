@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { TranslationResponse, VocabularyItem } from "../types";
+import { TranslationResponse, VocabularyItem } from "./types.js";
 
 const BASE_SYSTEM_INSTRUCTION = `
 You are "Ramanya," an expert AI translator specializing in the Mon language (ISO 639-3: mnw).
