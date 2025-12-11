@@ -47,7 +47,7 @@ IF INPUT IS MON:
 You must always reply in valid JSON format matching the schema provided.
 `;
 
-const responseSchema = {
+const responseSchema: Schema = {
   type: Type.OBJECT,
   properties: {
     source_language: {
@@ -73,13 +73,14 @@ const responseSchema = {
 };
 
 export const sendMessageToGemini = async (
-  message,
-  vocabulary = []
-) => {
+  message: string, 
+  vocabulary: VocabularyItem[] = []
+): Promise<TranslationResponse> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+  
+  // Construct dynamic system instruction with user vocabulary
   let finalSystemInstruction = BASE_SYSTEM_INSTRUCTION;
-
+  
   if (vocabulary.length > 0) {
     finalSystemInstruction += `\n\n### USER DEFINED VOCABULARY / TRANSLATION MEMORY:\n`;
     finalSystemInstruction += `The user has explicitly provided the following preferred translations. You MUST prioritize these:\n`;
@@ -89,7 +90,7 @@ export const sendMessageToGemini = async (
     });
   }
 
-  const tryModel = async (modelName) => {
+  const tryModel = async (modelName: string): Promise<TranslationResponse> => {
     console.log(`Attempting translation with model: ${modelName}`);
     const response = await ai.models.generateContent({
       model: modelName,
@@ -103,13 +104,20 @@ export const sendMessageToGemini = async (
 
     const responseText = response.text;
     if (!responseText) throw new Error("Empty response from " + modelName);
-    return JSON.parse(responseText.trim());
+    return JSON.parse(responseText.trim()) as TranslationResponse;
   };
 
   try {
+    // Primary Attempt: gemini-3-pro-preview
     return await tryModel('gemini-3-pro-preview');
   } catch (error) {
-    console.warn("Preview model failed. Falling back to 'gemini-3-pro'...", error);
-    return await tryModel('gemini-3-pro');
+    console.warn("Primary model 'gemini-3-pro-preview' failed or is unavailable. Falling back to 'gemini-3-pro'...", error);
+    try {
+      // Fallback Attempt: gemini-3-pro
+      return await tryModel('gemini-3-pro');
+    } catch (fallbackError) {
+      console.error("All models failed.", fallbackError);
+      throw fallbackError;
+    }
   }
 };
