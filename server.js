@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { TranslationResponse, VocabularyItem } from "./types.js";
 
 const BASE_SYSTEM_INSTRUCTION = `
@@ -60,44 +60,39 @@ const responseSchema = {
     },
     romanization: {
       type: Type.STRING,
-      description: 'Phonetic reading (optional, null if not needed).',
+      description: 'Phonetic reading (optional).',
       nullable: true,
     },
     notes: {
       type: Type.STRING,
-      description: 'Any cultural context or grammatical notes (optional).',
+      description: 'Optional cultural notes.',
       nullable: true,
     },
   },
-  required: ['source_language', 'translation'],
+  required: ["source_language", "translation"],
 };
 
-export const sendMessageToGemini = async (
-  message,
-  vocabulary = []
-) => {
+export const sendMessageToGemini = async (message, vocabulary = []) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   let finalSystemInstruction = BASE_SYSTEM_INSTRUCTION;
 
   if (vocabulary.length > 0) {
-    finalSystemInstruction += `\n\n### USER DEFINED VOCABULARY / TRANSLATION MEMORY:\n`;
-    finalSystemInstruction += `The user has explicitly provided the following preferred translations. You MUST prioritize these:\n`;
-    
-    vocabulary.forEach((item, index) => {
-      finalSystemInstruction += `${index + 1}. For "${item.original}", use "${item.suggestion}".${item.context ? ` Context: ${item.context}` : ''}\n`;
+    finalSystemInstruction += `\n\n### USER DEFINED VOCABULARY:\n`;
+    vocabulary.forEach((item, i) => {
+      finalSystemInstruction += `${i + 1}. "${item.original}" → "${item.suggestion}"${item.context ? ` (Context: ${item.context})` : ""}\n`;
     });
   }
 
   const tryModel = async (modelName) => {
-    console.log(`Attempting translation with model: ${modelName}`);
+    console.log("Trying model:", modelName);
     const response = await ai.models.generateContent({
       model: modelName,
       contents: message,
       config: {
         systemInstruction: finalSystemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema,
+        responseMimeType: "application/json",
+        responseSchema,
       },
     });
 
@@ -107,9 +102,9 @@ export const sendMessageToGemini = async (
   };
 
   try {
-    return await tryModel('gemini-3-pro-preview');
-  } catch (error) {
-    console.warn("Preview model failed. Falling back to 'gemini-3-pro'...", error);
-    return await tryModel('gemini-3-pro');
+    return await tryModel("gemini-3-pro-preview");
+  } catch (e) {
+    console.warn("Preview failed, falling back:", e);
+    return await tryModel("gemini-3-pro");
   }
 };
