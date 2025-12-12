@@ -86,10 +86,7 @@ function cosineSimilarity(a, b) {
 // 5. Load Approved Suggestions + Ensure Embeddings
 // -------------------------------------------------------------
 async function getApprovedSuggestionsWithEmbeddings() {
-  const snapshot = await db
-    .collection("suggestions")
-    .where("status", "==", "approved")
-    .get();
+  const snapshot = await db.collection("suggestions_approved").get();
 
   const suggestions = [];
 
@@ -227,7 +224,7 @@ app.post("/api/suggest", async (req, res) => {
       createdAt: Date.now(),
     };
 
-    const ref = await db.collection("suggestions").add(newSuggestion);
+    const ref = await db.collection("suggestions_pending").add(newSuggestion);
 
     return res.json({ ok: true, id: ref.id });
   } catch (err) {
@@ -236,6 +233,32 @@ app.post("/api/suggest", async (req, res) => {
   }
 });
 
+// 9. Admin: Approve a suggestion
+app.post("/api/approve-suggestion", async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    const docRef = db.collection("suggestions_pending").doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) return res.status(404).json({ error: "Not found" });
+
+    const data = doc.data();
+
+    await db.collection("suggestions_approved").add({
+      ...data,
+      status: "approved",
+      approvedAt: Date.now(),
+    });
+
+    await docRef.delete();
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to approve suggestion" });
+  }
+});
 // -------------------------------------------------------------
 // 9. Health Check
 // -------------------------------------------------------------
