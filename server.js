@@ -209,30 +209,30 @@ app.post("/api/translate", async (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 8. Admin Endpoint: Reindex embeddings (optional)
+// 8. NEW: Save Suggestion from User
 // -------------------------------------------------------------
-app.post("/api/reindex-suggestions", async (req, res) => {
+app.post("/api/suggest", async (req, res) => {
   try {
-    const snapshot = await db
-      .collection("suggestions")
-      .where("status", "==", "approved")
-      .get();
+    const { original, suggestion, context } = req.body;
 
-    let count = 0;
-
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      const emb = await embedText(data.original);
-
-      if (emb) {
-        await doc.ref.update({ embedding: emb });
-        count++;
-      }
+    if (!original || !suggestion) {
+      return res.status(400).json({ error: "Missing fields" });
     }
 
-    return res.json({ ok: true, updated: count });
+    const newSuggestion = {
+      original,
+      suggestion,
+      context: context || "",
+      status: "pending",      // Admin must approve
+      createdAt: Date.now(),
+    };
+
+    const ref = await db.collection("suggestions").add(newSuggestion);
+
+    return res.json({ ok: true, id: ref.id });
   } catch (err) {
-    return res.status(500).json({ error: "Reindex failed" });
+    console.error("❌ Error saving suggestion:", err);
+    return res.status(500).json({ error: "Failed to save suggestion" });
   }
 });
 
